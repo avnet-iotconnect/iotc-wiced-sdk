@@ -7,8 +7,8 @@
 
 #define MQTT_BROKER_ADDRESS_AVNET            "poc-iotconnect-iothub-eu.azure-devices.net"
 #define MQTT_TOPIC_REFIX "devices/"
-#define MQTT_SUB_SUFFIX  "/messages/events/"
-#define MQTT_PUB_SUFFIX  "/devicebound/#"
+#define MQTT_PUB_SUFFIX  "/messages/events/"
+#define MQTT_SUB_SUFFIX  "/messages/devicebound/#"
 
 /* TODO: Need HTTP sync implementation to return the propper information
  * All these functions can be obosleted */

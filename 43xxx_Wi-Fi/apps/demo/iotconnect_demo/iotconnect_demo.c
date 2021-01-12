@@ -225,9 +225,9 @@ void application_start( void )
 
     IOTCL_Init(&config);
 
-    const char *mqtt_broker = mqtt_get_host(IOTCONNECT_CPID);
+    const char *mqtt_broker = mqtt_get_host(IOTCONNECT_ENV);
 
-    WPRINT_APP_INFO( ( "Resolving IP address of MQTT broker...\n" ) );
+    WPRINT_APP_INFO( ( "Resolving IP address for MQTT broker for %s environment: %s \n" , IOTCONNECT_ENV, mqtt_broker) );
     ret = wiced_hostname_lookup( mqtt_broker, &broker_address, 10000, WICED_STA_INTERFACE );
     WPRINT_APP_INFO(("Resolved Broker IP: %u.%u.%u.%u\n\n", (uint8_t)(GET_IPV4_ADDRESS(broker_address) >> 24),
                     (uint8_t)(GET_IPV4_ADDRESS(broker_address) >> 16),
@@ -264,11 +264,13 @@ void application_start( void )
 
         WPRINT_APP_INFO(("[MQTT] Publishing..."));
         IOTCL_MESSAGE_HANDLE msg = IOTCL_TelemetryCreate();
+        IOTCL_TelemetryAddWithEpochTime(msg, 1610485938);
         IOTCL_TelemetrySetString(msg, "version", "00.00.01");
         IOTCL_TelemetrySetNumber(msg, "cpu", 10);
 
         const char *str = IOTCL_CreateSerializedString(msg, false);
 
+        WPRINT_APP_INFO( ( "[MQTT] Sending on %s: %s\n", pub_topic, str ) );
         RUN_COMMAND_PRINT_STATUS( mqtt_app_publish(
                 mqtt_object,
                 WICED_MQTT_QOS_DELIVER_AT_LEAST_ONCE,
@@ -276,7 +278,6 @@ void application_start( void )
                 (uint8_t*)str ,
                 strlen(str)
                 ), NULL, NULL );
-        WPRINT_APP_INFO( ( "Resolving IP address of MQTT broker...\n" ) );
 
         IOTCL_TelemetryDestroy(msg);
         IOTCL_DestroySerialized(str);
