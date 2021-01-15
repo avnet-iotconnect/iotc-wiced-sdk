@@ -22,6 +22,7 @@ NAME := Lib_iotconnect-lib
 
 $(NAME)_SOURCES := \
 	src/iotconnect_common.c \
+	src/iotconnect_discovery.c \
 	src/iotconnect_event.c \
 	src/iotconnect_lib.c \
 	src/iotconnect_telemetry.c \
