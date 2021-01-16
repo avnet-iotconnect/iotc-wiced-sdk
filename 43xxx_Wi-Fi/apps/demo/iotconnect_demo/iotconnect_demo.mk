@@ -42,14 +42,14 @@ NAME := App_IoTConnect_Demo
 $(NAME)_CFLAGS := -std=c99 -Wall -fdiagnostics-color=never 
 
 $(NAME)_SOURCES := \
-	iotconnect_demo.c \
-	iotconnect_mqtt_client.c
+	iotconnect_wiced_discovery.c \
+	iotconnect_demo.c
 
 $(NAME)_COMPONENTS := \
 	protocols/MQTT \
 	protocols/SNTP \
+	protocols/HTTP_client_v2 \
     libraries/protocols/iotc-c-lib
-
 
 WIFI_CONFIG_DCT_H := wifi_config_dct.h
 

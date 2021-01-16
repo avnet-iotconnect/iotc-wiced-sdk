@@ -6,17 +6,17 @@ This demo supports only the CA Certificates (x509) based authentication for IoTC
   
 * Download and install the WICED Studio. Note the location of the SDK directory.
 * Clone or download the following this repo.
-* Clone or fdownload iotc-c-lib tag v1.0.0
+* Clone or download iotc-c-lib tag v1.1.0
 
 * The following git commands can be used to pull all repos:
 
 ```bash
 git clone --depth 1 --branch v1.7.13 git@github.com:Avnet/iotc-wiced.git
-git clone --depth 1 --branch v1.0.0 git://github.com/Avnet/iotc-c-lib.git
+git clone --depth 1 --branch v1.1.0 git://github.com/Avnet/iotc-c-lib.git
 ```
  
 * Copy the contents of the 43xxx_Wi-Fi directory over the same directory inside the WICED SDK directory.
-* Copy the contents of the iotc-c-lib directory to WICED SDK libraries/protocols/iotc-c-lib directory. 
+* Copy the contents of the iotc-c-lib directory over the WICED SDK libraries/protocols/iotc-c-lib/ directory. 
 * Alternatively, if you wish to maintain source control,  you can create (symbolic or windows) links of this repo into the corresponding WICED SDK directories.
 
 ### Demo Setup
