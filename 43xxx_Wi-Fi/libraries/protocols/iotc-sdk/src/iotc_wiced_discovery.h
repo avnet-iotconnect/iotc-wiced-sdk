@@ -1,7 +1,9 @@
-#ifndef IOTCL_WICED_DICOVERY_H
-#define IOTCL_WICED_DICOVERY_H
-
+#pragma once
 #include "iotconnect_discovery.h"
+//
+// Copyright: Avnet 2020
+// Created by Nikola Markovic <nikola.markovic@avnet.com> on 1/18/2021.
+//
 
 #ifdef __cplusplus
 extern "C" {

@@ -39,17 +39,13 @@
 NAME := App_IoTConnect_Demo
 
 # -fdiagnostics-color=never use this to avoid garbled output in WICED-Studio on linux
-$(NAME)_CFLAGS := -std=c99 -Wall -fdiagnostics-color=never 
+$(NAME)_CFLAGS := -std=c99 -Wall -fdiagnostics-color=never -DWPRINT_ENABLE_APP_ERROR
 
 $(NAME)_SOURCES := \
-	iotconnect_wiced_discovery.c \
 	iotconnect_demo.c
 
 $(NAME)_COMPONENTS := \
-	protocols/MQTT \
-	protocols/SNTP \
-	protocols/HTTP_client_v2 \
-    libraries/protocols/iotc-c-lib
+    libraries/protocols/iotc-sdk
 
 WIFI_CONFIG_DCT_H := wifi_config_dct.h
 
