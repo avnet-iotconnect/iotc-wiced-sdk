@@ -1,3 +1,17 @@
+#
+# Copyright 2020, Cypress Semiconductor Corporation or a subsidiary of 
+ # Cypress Semiconductor Corporation. All Rights Reserved.
+ # This software, including source code, documentation and related
+ # materials ("Software"), is owned by Cypress Semiconductor Corporation
+ # or one of its subsidiaries ("Cypress") and is protected by and subject to
+ # worldwide patent protection (United States and foreign),
+ # United States copyright laws and international treaty provisions.
+ # Therefore, you may use this Software only as provided in the license
+ # agreement accompanying the software package from which you
+ # obtained this Software ("EULA").
+ # If no EULA applies, Cypress hereby grants you a personal, non-exclusive,
+ # non-transferable license to copy, modify, and compile the Software
+ # source code solely for use in connection with Cypress's
  # integrated circuit products. Any reproduction, modification, translation,
  # compilation, or representation of this Software except as specified
  # above is prohibited without the express written permission of Cypress.
@@ -16,20 +30,14 @@
  # so agrees to indemnify Cypress against all liability.
 #
 
-NAME := Lib_iotconnect-lib
+NAME := Lib_HTTP_Client_v2
 
+$(NAME)_SOURCES    := http.c \
+                      http_client.c
 
+$(NAME)_COMPONENTS := utilities/linked_list
 
-$(NAME)_SOURCES := \
-	src/iotconnect_common.c \
-	src/iotconnect_discovery.c \
-	src/iotconnect_event.c \
-	src/iotconnect_lib.c \
-	src/iotconnect_telemetry.c \
+$(NAME)_CFLAGS += -fdiagnostics-color=never
 
-$(NAME)_COMPONENTS := utilities/cJSON-iotconnect
-
-#make it visible for the applications which take advantage of this lib
-GLOBAL_INCLUDES := include
-
-$(NAME)_CFLAGS += -std=c99 -Wall -Werror -fdiagnostics-color=never
+# make it visible for the applications which take advantage of this lib
+GLOBAL_INCLUDES := .

@@ -39,573 +39,263 @@
 
 #include <time.h>
 
-#include "mqtt_api.h"
-#include "sntp.h"
+#include <mqtt_api.h>
+#include <sntp.h>
 
 #include "iotconnect_client_config.h"
-#include "iotconnect_mqtt_client.h"
 
 #include "iotconnect_lib.h"
 #include "iotconnect_telemetry.h"
-
-#include "resources.h"
-
-/** @file
- *
- * Send/Receive MQTT Application
- *
- * This application snippet demonstrates how to use
- * the WICED MQTT client library.
- *
- * Features demonstrated
- *  - MQTT Client initiation
- *  - MQTT Client publish (sending / receiving)
- *  - MQTT Client subscribing
- *
- * To demonstrate the app, work through the following steps.
- *  1. Modify the CLIENT_AP_SSID/CLIENT_AP_PASSPHRASE Wi-Fi credentials
- *     in the wifi_config_dct.h header file to match your Wi-Fi access point
- *  2. Modify the MQTT_BROKER_ADDRESS with your MQTT broker( currently using test.mosquitto.org).
- *  3. Plug the WICED eval board into your computer
- *  4. Open a terminal application and connect to the WICED eval board
- *  5. Build and download the application (to the WICED board)
- *
- * Before running the application on the WICED, Make sure your network settings in which Mqtt ports(1883, 8883-secured) are enabled.
- *
- * After the download completes, the terminal displays WICED startup
- * information and then :
- *  - Joins a Wi-Fi network
- *  - Starts an MQTT connection with the server
- *  - Subscribe for a MQTT/WICED/TOPIC topic.
- *  - Publish "Hello WICED" to the same topic
- *  - Received "Hello WICED" from the mqtt deamon.
- *  - Close the MQTT connection
- *
- *SECURITY:
- *  Security in MQTT is done through TLS. This application is testing MQTT over TLS.
- *  We are securely connecting to public broker(test.mosquitto.org)
- *  Root certifcate is of mosquitto.org is in resources/apps/secure_mqtt/secure_mqtt_root_cacert.cer
- *
- *  NOTE : Application uses only root CA certificate.
- *
- *TROUBLESHOOTING
- *   If you are having difficulty connecting the MQTT broker,
- *   Make sure your Broker is configured correctly
- *
- * NOTES:
- *
- *  - Retransmission: WICED MQTT provides two types of retransmission
- *    * Session continue retransmission: When a session is not set as clean, retransmission
- *      of any queued packets from previous session is done once a connect ACK is received.
- *      Session retransmission is part of the MQTT standard.
- *    * In session retransmission: This basically means trying to resend un ACKed packets.
- *      MQTT left this as an application specific and didn't indicate if/when retransmissions
- *      should occur.  WICED MQTT does retransmissions for unACKed packets on the reception
- *      of a PINGRES (ping response) from the deamon. If keep_alive is disabled (not recommended
- *      , in sessions retransmissions will be disabled.
- *
- *  - The MQTT library doesn't protect against user errors, i.e if a user decided to send a
- *    wrong command in a wrong time, the MQTT library won't stop him. The server would signal
- *    an error though.
- *
- *  - Calling MQTT APIs from the event handler call back functions is possible. The only exception
- *    is the wiced_mqtt_deinit which terminates the thread where the call back is being
- *    issued from.
- */
-/******************************************************
- *                      Macros
- ******************************************************/
-#define RUN_COMMAND_PRINT_STATUS( command, ok_message, error_message )   \
-        {                                                                                   \
-            ret = (command);                                                                \
-            mqtt_print_status( ret, (const char *)ok_message, (const char *)error_message );\
-        }
-
-
-
-#define RUN_COMMAND_PRINT_STATUS_AND_BREAK_ON_ERROR( command, ok_message, error_message )   \
-        {                                                                                   \
-            ret = (command);                                                                \
-            mqtt_print_status( ret, (const char *)ok_message, (const char *)error_message );\
-            if ( ret != WICED_SUCCESS ) break;                                              \
-        }
-
-
-/******************************************************
- *                    Constants
- ******************************************************/
-
-#define WICED_MQTT_TIMEOUT                  (5000)
-
-#define WICED_MQTT_DELAY_IN_MILLISECONDS    (1000)
+#include "iotc_sdk.h"
+#include <resources.h>
 
 #define MQTT_MAX_RESOURCE_SIZE              (4000)
-/******************************************************
- *                   Enumerations
- ******************************************************/
+#define MAIN_APP_VERSION                    "00.00.01"
 
-/******************************************************
- *                 Type Definitions
- ******************************************************/
+//static wiced_worker_thread_t mqtt_send_thread;
 
-/******************************************************
- *                    Structures
- ******************************************************/
+static wiced_result_t get_credentials_from_resources(wiced_mqtt_security_t *s);
 
-/******************************************************
- *               Function Declarations
- ******************************************************/
-static wiced_result_t get_credentials_from_resources( void );
-static wiced_result_t mqtt_connection_event_cb( wiced_mqtt_object_t mqtt_object, wiced_mqtt_event_info_t *event );
-static wiced_result_t mqtt_wait_for( wiced_mqtt_event_type_t event, uint32_t timeout );
-static wiced_result_t mqtt_conn_open( const char* client_id, const char* username, wiced_mqtt_object_t mqtt_obj, wiced_ip_address_t *address, wiced_interface_t interface, wiced_mqtt_callback_t callback, wiced_mqtt_security_t *security );
-static wiced_result_t mqtt_conn_close( wiced_mqtt_object_t mqtt_object );
-static wiced_result_t mqtt_app_subscribe( wiced_mqtt_object_t mqtt_obj, char *topic, uint8_t qos );
-static wiced_result_t mqtt_app_unsubscribe( wiced_mqtt_object_t mqtt_obj, char *topic );
-static wiced_result_t mqtt_app_publish( wiced_mqtt_object_t mqtt_obj, uint8_t qos, char *topic, uint8_t *data, uint32_t data_len );
+/*
+ * time() function implementation, required for IotConnect C Library
+ */
+time_t time(time_t *timer) {
+    uint64_t time_ms;
+    wiced_time_get_utc_time_ms((wiced_utc_time_ms_t * ) & time_ms);
+    return time_ms / 1000;
+}
 
-static void mqtt_print_status( wiced_result_t restult, const char * ok_message, const char * error_message );
+#if 0
+static wiced_result_t mqtt_send_handler( void* arg ) {
+    const char* msg = ( const char*) arg;
+    WPRINT_APP_INFO(("out: %s\n", msg));
+    IotConnectSdk_SendPacket(msg);
+    IOTCL_DestroySerialized(msg);
+    return WICED_SUCCESS;
+}
+#endif
 
-/******************************************************
- *               Variable Definitions
- ******************************************************/
-static wiced_ip_address_t    broker_address;
-static wiced_mqtt_callback_t callbacks = mqtt_connection_event_cb;
-static wiced_mqtt_event_type_t expected_event;
-static wiced_semaphore_t semaphore;
-static wiced_mqtt_security_t security;
+static void on_command(IOTCL_EVENT_DATA data) {
+    const char *command = IOTCL_CloneCommand(data);
+    if (NULL != command) {
+        WPRINT_APP_INFO(("Received command: %s\n", command));
+        free((void *) command);
+    }
+    const char *ack = IOTCL_CreateAckStringAndDestroyEvent(data, false, "Not implemented");
+    if (NULL != ack) {
+        IotConnectSdk_SendPacket(ack);
+        WPRINT_APP_INFO(("Sent CMD ack: %s\n", ack));
+        //wiced_rtos_send_asynchronous_event( &mqtt_send_thread, mqtt_send_handler, (void*)ack );
+        free((void *) ack);
+    } else {
+        WPRINT_APP_ERROR(("Error while creating the ack JSON\n"));
+    }
+}
 
-/******************************************************
- *               Function Definitions
- ******************************************************/
+static void on_ota(IOTCL_EVENT_DATA data) {
+    const char *message = NULL;
+    char *url = IOTCL_CloneDownloadUrl(data, 0);
+    bool success = false;
+    if (NULL != url) {
+        const char *version = IOTCL_CloneSwVersion(data);
+        WPRINT_APP_INFO(("Received OTA Download URL: %s for version %s \n", url, version));
+        message = "OTA not supported";
+        free((void *) url);
+        free((void *) version);
+    } else {
+        // compatibility with older than 2.0 back end events
+        const char *command = IOTCL_CloneCommand(data);
+        if (NULL != command) {
+            // URL will be the command argument
+            WPRINT_APP_INFO(("Command is: %s\n", command));
+            message = "OTA not supported";
+            free((void *) command);
+        }
+    }
+    const char *ack = IOTCL_CreateAckStringAndDestroyEvent(data, success, message);
+    if (NULL != ack) {
+        WPRINT_APP_INFO(("Sent OTA ack: %s\n", ack));
+        //wiced_rtos_send_asynchronous_event( &mqtt_send_thread, mqtt_send_handler, (void*)ack );
+        IotConnectSdk_SendPacket(ack);
+        free((void *) ack);
+    }
+}
 
+static void on_connection_status(IOT_CONNECT_STATUS status, void *data) {
+    // Add your own status handling
+    switch (status) {
+        case MQTT_CONNECTED:
+            WPRINT_APP_INFO(("IoTConnect MQTT Connected\n"));
+            break;
+        case MQTT_DISCONNECTED:
+            WPRINT_APP_INFO(("IoTConnect MQTT Disconnected\n"));
+            break;
+        case MQTT_PUBLISHED: {
+            wiced_mqtt_msgid_t *data_ptr = (wiced_mqtt_msgid_t *) data;
+            WPRINT_APP_INFO(("Packet ID %u published\n", *data_ptr));
+        }
+            break;
+        case MQTT_FAILED:
+        default:
+            WPRINT_APP_ERROR(("IoTConnect MQTT ERROR\n"));
+            break;
+    }
+}
 
-void application_start( void )
-{
-    static wiced_mqtt_object_t mqtt_object;
+static void publish_telemetry() {
+    IOTCL_MESSAGE_HANDLE msg = IOTCL_TelemetryCreate(IotConnectSdk_GetLibConfig());
+    wiced_rtos_delay_milliseconds(1000);
+
+    IOTCL_TelemetrySetString(msg, "version", MAIN_APP_VERSION);
+
+    IOTCL_TelemetrySetNumber(msg, "cpu", 33);
+
+    const char *str = IOTCL_CreateSerializedString(msg, false);
+    IOTCL_TelemetryDestroy(msg);
+    //wiced_rtos_send_asynchronous_event( &mqtt_send_thread, mqtt_send_handler, (void*)str );
+    wiced_mqtt_msgid_t pktId = IotConnectSdk_SendPacket(str);
+    WPRINT_APP_INFO(("Sending packet ID %u: %s\n", pktId, str));
+    IOTCL_DestroySerialized(str);
+}
+
+void application_start(void) {
     wiced_result_t ret = WICED_SUCCESS;
 
-    wiced_init( );
+    ret = wiced_init();
 
-    /* Memory allocated for mqtt object*/
-    mqtt_object = (wiced_mqtt_object_t) malloc( WICED_MQTT_OBJECT_MEMORY_SIZE_REQUIREMENT );
-    if ( mqtt_object == NULL )
-    {
-        WPRINT_APP_ERROR(("Don't have memory to allocate for mqtt object...\n"));
+#if 0
+    ret = wiced_rtos_create_worker_thread( &mqtt_send_thread, WICED_DEFAULT_LIBRARY_PRIORITY, 4096, 4 );
+    if (ret != WICED_SUCCESS) {
+        WPRINT_APP_ERROR(("Error while trying to create a worker thread\n"));
         return;
     }
-
-    ret = get_credentials_from_resources();
-    if( ret != WICED_SUCCESS )
-    {
-        WPRINT_APP_INFO( ("[Application/AWS] Error fetching credentials from resources\n" ) );
-        return;
-    }
+#endif
 
     /* Bringup the network interface */
-    wiced_network_up( WICED_STA_INTERFACE, WICED_USE_EXTERNAL_DHCP_SERVER, NULL );
+    wiced_network_up(WICED_STA_INTERFACE, WICED_USE_EXTERNAL_DHCP_SERVER, NULL);
+
+#define PREFIX_LEN (sizeof("wiced-") - 1)
+    char duid[PREFIX_LEN + 8] = "wiced-test";
+    wiced_mac_t mac;
+    if (wiced_wifi_get_mac_address(&mac) == WICED_SUCCESS) {
+        for (int i = 0; i < 6; i++) {
+            sprintf(&duid[PREFIX_LEN + i * 2], "%0x", mac.octet[i]);
+        }
+    }
+    WPRINT_APP_INFO(("DUID: %.*s...\n", PREFIX_LEN + 5, duid));
+
+
+    IOTCONNECT_CLIENT_CONFIG *config = IotConnectSdk_InitAndGetConfig();
+
+    ret = get_credentials_from_resources(&config->security);
+
+    if (WICED_SUCCESS != ret) {
+        WPRINT_APP_ERROR(("Failed to get MQTT credentials from resources\n"));
+        return;
+    }
 
     /* IoTConnect requires timestamp.
      * Enable automatic time synchronisation and configure to synchronise once a day.
      */
+    WPRINT_APP_INFO(("Fetching time from the SNTP server. Waiting... \n"));
+    sntp_start_auto_time_sync(1 * DAYS);
+    WPRINT_APP_INFO(("Time obtained.\n"));
 
-    WPRINT_APP_INFO(( "Fetching time from the SNTP server. Waiting... \n" ));
+    config->duid = duid;
+    config->cpid = IOTCONNECT_CPID;
+    config->env = IOTCONNECT_ENV;
 
-    sntp_start_auto_time_sync( 1 * DAYS );
+    config->cmd_cb = on_command;
+    config->ota_cb = on_ota;
+    config->status_cb = on_connection_status;
 
-    WPRINT_APP_INFO(( "Time obtained.\n" ));
-
-
-    IOTCL_CONFIG config;
-    memset(&config, 0, sizeof(config));
-    config.device.cpid = IOTCONNECT_CPID;
-    config.device.duid = IOTCONNECT_DUID;
-    config.device.env = IOTCONNECT_ENV;
-    config.telemetry.dtg = IOTCONNECT_DTG;
-
-    IOTCL_Init(&config);
-
-    const char *mqtt_broker = mqtt_get_host(IOTCONNECT_ENV);
-
-    WPRINT_APP_INFO( ( "Resolving IP address for MQTT broker for %s environment: %s \n" , IOTCONNECT_ENV, mqtt_broker) );
-    ret = wiced_hostname_lookup( mqtt_broker, &broker_address, 10000, WICED_STA_INTERFACE );
-    WPRINT_APP_INFO(("Resolved Broker IP: %u.%u.%u.%u\n\n", (uint8_t)(GET_IPV4_ADDRESS(broker_address) >> 24),
-                    (uint8_t)(GET_IPV4_ADDRESS(broker_address) >> 16),
-                    (uint8_t)(GET_IPV4_ADDRESS(broker_address) >> 8),
-                    (uint8_t)(GET_IPV4_ADDRESS(broker_address) >> 0)));
-    if ( ret == WICED_ERROR || broker_address.ip.v4 == 0 )
-    {
-        WPRINT_APP_INFO(("Error in resolving DNS\n"));
+    ret = IotConnectSdk_Init();
+    if (WICED_SUCCESS != ret) {
+        WPRINT_APP_ERROR(("Failed to initialize the SDK\n"));
         return;
     }
 
-    ret = wiced_mqtt_init( mqtt_object );
-    if( ret != WICED_SUCCESS )
-    {
-        WPRINT_APP_INFO( ("[Application/AWS] Failed to init mqtt\n" ) );
-        return;
-    }
+    int i = 0;
+    while (ret == IotConnectSdk_IsConnected() && i < 10) {
 
-    wiced_rtos_init_semaphore( &semaphore );
+        publish_telemetry();
 
-
-    char *client_id = mqtt_create_client_id_str(IOTCONNECT_CPID, IOTCONNECT_DUID);
-    char *pub_topic = mqtt_create_pub_topic_str(client_id);
-    char *sub_topic = mqtt_create_sub_topic_str(client_id);
-    char *username = mqtt_create_username_str(client_id, mqtt_broker);
-
-    while ( ret == WICED_SUCCESS )
-    {
-
-        WPRINT_APP_INFO(("[MQTT] Opening connection..."));
-        RUN_COMMAND_PRINT_STATUS_AND_BREAK_ON_ERROR( mqtt_conn_open( client_id, username, mqtt_object, &broker_address, WICED_STA_INTERFACE, callbacks, &security ), NULL, "Did you configure you broker IP address?\n" );
-
-        wiced_rtos_delay_milliseconds( WICED_MQTT_DELAY_IN_MILLISECONDS * 10 );
-
-        WPRINT_APP_INFO(("[MQTT] Publishing..."));
-        IOTCL_MESSAGE_HANDLE msg = IOTCL_TelemetryCreate();
-        IOTCL_TelemetryAddWithEpochTime(msg, 1610485938);
-        IOTCL_TelemetrySetString(msg, "version", "00.00.01");
-        IOTCL_TelemetrySetNumber(msg, "cpu", 10);
-
-        const char *str = IOTCL_CreateSerializedString(msg, false);
-
-        WPRINT_APP_INFO( ( "[MQTT] Sending on %s: %s\n", pub_topic, str ) );
-        RUN_COMMAND_PRINT_STATUS( mqtt_app_publish(
-                mqtt_object,
-                WICED_MQTT_QOS_DELIVER_AT_LEAST_ONCE,
-                pub_topic,
-                (uint8_t*)str ,
-                strlen(str)
-                ), NULL, NULL );
-
-        IOTCL_TelemetryDestroy(msg);
-        IOTCL_DestroySerialized(str);
-
-        WPRINT_APP_INFO(("[MQTT] Subscribing..."));
-        RUN_COMMAND_PRINT_STATUS_AND_BREAK_ON_ERROR( mqtt_app_subscribe( mqtt_object, sub_topic , WICED_MQTT_QOS_DELIVER_AT_LEAST_ONCE ), NULL, NULL );
-
-        WPRINT_APP_INFO(("[MQTT] Waiting some time for ping exchange...\n\n"));
-        wiced_rtos_delay_milliseconds( WICED_MQTT_DELAY_IN_MILLISECONDS * 10 );
-
-        WPRINT_APP_INFO(("[MQTT] Unsubscribing..."));
-        RUN_COMMAND_PRINT_STATUS( mqtt_app_unsubscribe( mqtt_object, sub_topic ), NULL, NULL );
-
-        WPRINT_APP_INFO(("[MQTT] Closing connection..."));
-        RUN_COMMAND_PRINT_STATUS_AND_BREAK_ON_ERROR( mqtt_conn_close( mqtt_object ), NULL, NULL );
-
-        wiced_rtos_delay_milliseconds( WICED_MQTT_DELAY_IN_MILLISECONDS * 2 );
+        wiced_rtos_delay_milliseconds(20000);
+        i++;
 
     }
-    wiced_rtos_deinit_semaphore( &semaphore );
-    WPRINT_APP_INFO(("[MQTT] Deinit connection..."));
-
-    ret = wiced_mqtt_deinit( mqtt_object );
-    mqtt_print_status( ret, NULL, NULL );
-
-    free( mqtt_object );
-    free( client_id );
-    free( pub_topic );
-    free( sub_topic );
+    IotConnectSdk_Disconnect();
+    //wiced_rtos_delete_worker_thread( &mqtt_send_thread );
 
     /* Free security resources, only needed at initialization */
-    resource_free_readonly_buffer( &resources_apps_DIR_iotconnect_demo_DIR_rootca_cer, security.ca_cert );
-    resource_free_readonly_buffer( &resources_apps_DIR_iotconnect_demo_DIR_client_cer, security.cert );
-    resource_free_readonly_buffer( &resources_apps_DIR_iotconnect_demo_DIR_privkey_cer, security.key );
+    resource_free_readonly_buffer(&resources_apps_DIR_iotconnect_demo_DIR_rootca_cer, config->security.ca_cert);
+    resource_free_readonly_buffer(&resources_apps_DIR_iotconnect_demo_DIR_client_cer, config->security.cert);
+    resource_free_readonly_buffer(&resources_apps_DIR_iotconnect_demo_DIR_privkey_cer, config->security.key);
+
+
 }
 
-/******************************************************
- *               Static Function Definitions
- ******************************************************/
-
-static wiced_result_t get_credentials_from_resources( void )
-{
+static wiced_result_t get_credentials_from_resources(wiced_mqtt_security_t *s) {
     uint32_t size_out = 0;
     wiced_result_t result = WICED_ERROR;
 
-    wiced_mqtt_security_t* s = &security;
 
-    if( s->ca_cert )
-    {
-        WPRINT_APP_INFO(("\n[Application/AWS] Security Credentials already set(not NULL). Abort Reading from Resources...\n"));
+    if (s->ca_cert) {
+        WPRINT_APP_ERROR(
+                ("Security Credentials already set(not NULL). Abort Reading from Resources...\n"));
         return WICED_SUCCESS;
     }
 
-    /* Get AWS Root CA certificate filename: 'rootca.cer' located @ resources/apps/aws/iot folder */
-    result = resource_get_readonly_buffer( &resources_apps_DIR_iotconnect_demo_DIR_rootca_cer, 0, MQTT_MAX_RESOURCE_SIZE, &size_out, (const void **) &s->ca_cert);
-    if( result != WICED_SUCCESS )
-    {
-        goto _fail_aws_certificate;
+    /* Get Root CA certificate filename: 'rootca.cer' located @ resources/apps/iotconnect_demo folder */
+    result = resource_get_readonly_buffer(&resources_apps_DIR_iotconnect_demo_DIR_rootca_cer, 0, MQTT_MAX_RESOURCE_SIZE,
+                                          &size_out, (const void **) &s->ca_cert);
+    if (result != WICED_SUCCESS) {
+        goto _fail_certificate_load;
     }
-    if( size_out < 64 )
-    {
-        WPRINT_APP_INFO( ( "\n[Application/AWS] Invalid Root CA Certificate! Replace the dummy certificate with AWS one[<YOUR_WICED_SDK>/resources/app/aws/iot/'rootca.cer']\n\n" ) );
-        resource_free_readonly_buffer( &resources_apps_DIR_iotconnect_demo_DIR_rootca_cer, (const void *)s->ca_cert );
-        goto _fail_aws_certificate;
+    if (size_out < 64) {
+        WPRINT_APP_ERROR(
+                ("Invalid Root CA Certificate! Replace the dummy certificate with the correct cert in your application resources.\n"));
+        resource_free_readonly_buffer(&resources_apps_DIR_iotconnect_demo_DIR_rootca_cer, (const void *) s->ca_cert);
+        goto _fail_certificate_load;
     }
 
     s->ca_cert_len = size_out;
 
-    /* Get Publisher's Certificate filename: 'client.cer' located @ resources/apps/aws/greengrass/pubisher folder */
-    result = resource_get_readonly_buffer( &resources_apps_DIR_iotconnect_demo_DIR_client_cer, 0, MQTT_MAX_RESOURCE_SIZE, &size_out, (const void **) &s->cert );
-    if( result != WICED_SUCCESS )
-    {
+    /* Get Publisher's Certificate filename: 'client.cer' located @ resources/apps/iotconnect_demo  folder */
+    result = resource_get_readonly_buffer(&resources_apps_DIR_iotconnect_demo_DIR_client_cer, 0, MQTT_MAX_RESOURCE_SIZE,
+                                          &size_out, (const void **) &s->cert);
+    if (result != WICED_SUCCESS) {
         goto _fail_client_certificate;
     }
-    if(size_out < 64)
-    {
-        WPRINT_APP_INFO( ( "\n[Application/AWS] Invalid Device Certificate! Replace the dummy certificate with AWS one[<YOUR_WICED_SDK>/resources/app/aws/greengrass/publisher/'client.cer']\n\n" ) );
-        resource_free_readonly_buffer( &resources_apps_DIR_iotconnect_demo_DIR_client_cer, (const void *)s->cert );
+    if (size_out < 64) {
+        WPRINT_APP_ERROR(
+                ("Invalid Device Certificate! Replace the dummy certificate with the correct cert in your application resources.\n"));
+        resource_free_readonly_buffer(&resources_apps_DIR_iotconnect_demo_DIR_client_cer, (const void *) s->cert);
         goto _fail_client_certificate;
     }
 
     s->cert_len = size_out;
 
-    /* Get Publisher's Private Key filename: 'privkey.cer' located @ resources/apps/aws/greengrass/publisher folder */
-    result = resource_get_readonly_buffer( &resources_apps_DIR_iotconnect_demo_DIR_privkey_cer, 0, MQTT_MAX_RESOURCE_SIZE, &size_out, (const void **) &s->key );
-    if( result != WICED_SUCCESS )
-    {
+    /* Get Publisher's Private Key filename: 'privkey.cer' located @ resources/apps/iotconnect_demo folder */
+    result = resource_get_readonly_buffer(&resources_apps_DIR_iotconnect_demo_DIR_privkey_cer, 0,
+                                          MQTT_MAX_RESOURCE_SIZE, &size_out, (const void **) &s->key);
+    if (result != WICED_SUCCESS) {
         goto _fail_private_key;
     }
-    if(size_out < 64)
-    {
-        WPRINT_APP_INFO( ( "\n[Application/AWS] Invalid Device Private-Key! Replace the dummy Private-key with AWS one[<YOUR_WICED_SDK>/resources/app/aws/greengrass/publisher/'privkey.cer'\n\n" ) );
-        resource_free_readonly_buffer( &resources_apps_DIR_iotconnect_demo_DIR_privkey_cer, (const void *)s->key );
+    if (size_out < 64) {
+        WPRINT_APP_ERROR(
+                ("Invalid Device Private-Key! Replace the dummy Private-key with the correct key in your application resources.\n"));
+        resource_free_readonly_buffer(&resources_apps_DIR_iotconnect_demo_DIR_privkey_cer, (const void *) s->key);
         goto _fail_private_key;
     }
     s->key_len = size_out;
 
     return WICED_SUCCESS;
 
-_fail_private_key:
-    resource_free_readonly_buffer( &resources_apps_DIR_iotconnect_demo_DIR_client_cer, (const void *)s->cert );
-_fail_client_certificate:
-    resource_free_readonly_buffer( &resources_apps_DIR_iotconnect_demo_DIR_rootca_cer, (const void *)s->ca_cert );
-_fail_aws_certificate:
+    _fail_private_key:
+    resource_free_readonly_buffer(&resources_apps_DIR_iotconnect_demo_DIR_client_cer, (const void *) s->cert);
+    _fail_client_certificate:
+    resource_free_readonly_buffer(&resources_apps_DIR_iotconnect_demo_DIR_rootca_cer, (const void *) s->ca_cert);
+    _fail_certificate_load:
     return WICED_ERROR;
-}
-
-/*
- * A simple result log function
- */
-static void mqtt_print_status( wiced_result_t result, const char * ok_message, const char * error_message )
-{
-    if ( result == WICED_SUCCESS )
-    {
-        if ( ok_message != NULL )
-        {
-            WPRINT_APP_INFO(( "OK (%s)\n\n", (ok_message)));
-        }
-        else
-        {
-            WPRINT_APP_INFO(( "OK.\n\n" ));
-        }
-    }
-    else
-    {
-        if ( error_message != NULL )
-        {
-            WPRINT_APP_INFO(( "ERROR (%s)\n\n", (error_message)));
-        }
-        else
-        {
-            WPRINT_APP_INFO(( "ERROR.\n\n" ));
-        }
-    }
-}
-
-/*
- * Call back function to handle connection events.
- */
-static wiced_result_t mqtt_connection_event_cb( wiced_mqtt_object_t mqtt_object, wiced_mqtt_event_info_t *event )
-{
-    switch ( event->type )
-    {
-        case WICED_MQTT_EVENT_TYPE_CONNECT_REQ_STATUS:
-            WPRINT_APP_INFO(("[MQTT] Connected..."));
-            if(event->data.conn_ack.err_code != WICED_MQTT_CONN_ERR_CODE_NONE)
-            {
-                WPRINT_APP_INFO(("Connection Error code: %d\n",event->data.conn_ack.err_code));
-            }
-            else
-            {
-                WPRINT_APP_INFO(("Successfully connected\n"));
-            }
-            break;
-        case WICED_MQTT_EVENT_TYPE_DISCONNECTED:
-            WPRINT_APP_INFO(("[MQTT] Disconnected..."));
-            break;
-        default:
-            break;
-    }
-    switch ( event->type )
-    {
-        case WICED_MQTT_EVENT_TYPE_CONNECT_REQ_STATUS:
-        case WICED_MQTT_EVENT_TYPE_DISCONNECTED:
-        case WICED_MQTT_EVENT_TYPE_PUBLISHED:
-        case WICED_MQTT_EVENT_TYPE_SUBSCRIBED:
-        case WICED_MQTT_EVENT_TYPE_UNSUBSCRIBED:
-        {
-            expected_event = event->type;
-            wiced_rtos_set_semaphore( &semaphore );
-        }
-            break;
-        case WICED_MQTT_EVENT_TYPE_PUBLISH_MSG_RECEIVED:
-        {
-            wiced_mqtt_topic_msg_t msg = event->data.pub_recvd;
-            WPRINT_APP_INFO(( "[MQTT] Received %.*s  for TOPIC : %.*s\n\n", (int) msg.data_len, msg.data, (int) msg.topic_len, msg.topic ));
-        }
-            break;
-        default:
-            break;
-    }
-    return WICED_SUCCESS;
-}
-
-/*
- * Call back function to handle channel events.
- *
- * For each event:
- *  - The call back will set the expected_event global to the received event.
- *  - The call back will set the event semaphore to run any blocking thread functions waiting on this event
- *  - Some events will also log other global variables required for extra processing.
- *
- * A thread function will probably be waiting for the received event. Once the event is received and the
- * semaphore is set, the thread function will check for the received event and make sure it matches what
- * it is expecting.
- *
- * Note:  This mechanism is not thread safe as we are using a non protected global variable for read/write.
- * However as this snip is a single controlled thread, there is no risc of racing conditions. It is
- * however not recommended for multi-threaded applications.
- */
-
-/*
- * A blocking call to an expected event.
- */
-static wiced_result_t mqtt_wait_for( wiced_mqtt_event_type_t event, uint32_t timeout )
-{
-    if ( wiced_rtos_get_semaphore( &semaphore, timeout ) != WICED_SUCCESS )
-    {
-        return WICED_ERROR;
-    }
-    else
-    {
-        if ( event != expected_event )
-        {
-            return WICED_ERROR;
-        }
-    }
-    return WICED_SUCCESS;
-}
-
-/*
- * Open a connection and wait for WICED_MQTT_TIMEOUT period to receive a connection open OK event
- */
-wiced_result_t mqtt_conn_open(
-        const char* client_id,
-        const char* username,
-        wiced_mqtt_object_t mqtt_obj,
-        wiced_ip_address_t *address,
-        wiced_interface_t interface,
-        wiced_mqtt_callback_t callback,
-        wiced_mqtt_security_t *security
-        )
-{
-    wiced_mqtt_pkt_connect_t conninfo;
-    wiced_result_t ret = WICED_SUCCESS;
-
-    memset( &conninfo, 0, sizeof( conninfo ) );
-
-    conninfo.port_number = 8883;                   /* set to 0 indicates library to use default settings */
-    conninfo.mqtt_version = WICED_MQTT_PROTOCOL_VER4;
-    conninfo.clean_session = 1;
-    conninfo.client_id = (uint8_t*) client_id;
-    conninfo.keep_alive = 10;
-    conninfo.password = (uint8_t*) "";
-    conninfo.username = (uint8_t*) username;
-    conninfo.peer_cn = (uint8_t*) "*.azure-devices.net";
-
-    ret = wiced_mqtt_connect( mqtt_obj, address, interface, callback, security, &conninfo );
-    if ( ret != WICED_SUCCESS )
-    {
-        return WICED_ERROR;
-    }
-    if ( mqtt_wait_for( WICED_MQTT_EVENT_TYPE_CONNECT_REQ_STATUS, WICED_MQTT_TIMEOUT ) != WICED_SUCCESS )
-    {
-        return WICED_ERROR;
-    }
-    return WICED_SUCCESS;
-}
-
-/*
- * Close a connection and wait for 5 seconds to receive a connection close OK event
- */
-static wiced_result_t mqtt_conn_close( wiced_mqtt_object_t mqtt_obj )
-{
-    if ( wiced_mqtt_disconnect( mqtt_obj ) != WICED_SUCCESS )
-    {
-        return WICED_ERROR;
-    }
-    if ( mqtt_wait_for( WICED_MQTT_EVENT_TYPE_DISCONNECTED, WICED_MQTT_TIMEOUT ) != WICED_SUCCESS )
-    {
-        return WICED_ERROR;
-    }
-    return WICED_SUCCESS;
-}
-
-/*
- * Subscribe to WICED_TOPIC and wait for 5 seconds to receive an ACM.
- */
-static wiced_result_t mqtt_app_subscribe( wiced_mqtt_object_t mqtt_obj, char *topic, uint8_t qos )
-{
-    wiced_mqtt_msgid_t pktid;
-    pktid = wiced_mqtt_subscribe( mqtt_obj, topic, qos );
-    if ( pktid == 0 )
-    {
-        return WICED_ERROR;
-    }
-    if ( mqtt_wait_for( WICED_MQTT_EVENT_TYPE_SUBSCRIBED, WICED_MQTT_TIMEOUT ) != WICED_SUCCESS )
-    {
-        return WICED_ERROR;
-    }
-    return WICED_SUCCESS;
-}
-
-/*
- * Unsubscribe from WICED_TOPIC and wait for 10 seconds to receive an ACM.
- */
-static wiced_result_t mqtt_app_unsubscribe( wiced_mqtt_object_t mqtt_obj, char *topic )
-{
-    wiced_mqtt_msgid_t pktid;
-    pktid = wiced_mqtt_unsubscribe( mqtt_obj, topic );
-
-    if ( pktid == 0 )
-    {
-        return WICED_ERROR;
-    }
-    if ( mqtt_wait_for( WICED_MQTT_EVENT_TYPE_UNSUBSCRIBED, WICED_MQTT_TIMEOUT*2 ) != WICED_SUCCESS )
-    {
-        return WICED_ERROR;
-    }
-    return WICED_SUCCESS;
-}
-
-/*
- * Publish (send) WICED_MESSAGE_STR to WICED_TOPIC and wait for 5 seconds to receive a PUBCOMP (as it is QoS=2).
- */
-static wiced_result_t mqtt_app_publish( wiced_mqtt_object_t mqtt_obj, uint8_t qos, char *topic, uint8_t *data, uint32_t data_len )
-{
-    wiced_mqtt_msgid_t pktid;
-    pktid = wiced_mqtt_publish( mqtt_obj, topic, data, data_len, qos );
-
-    if ( pktid == 0 )
-    {
-        return WICED_ERROR;
-    }
-
-    if ( mqtt_wait_for( WICED_MQTT_EVENT_TYPE_PUBLISHED, WICED_MQTT_TIMEOUT ) != WICED_SUCCESS )
-    {
-        return WICED_ERROR;
-    }
-    return WICED_SUCCESS;
 }

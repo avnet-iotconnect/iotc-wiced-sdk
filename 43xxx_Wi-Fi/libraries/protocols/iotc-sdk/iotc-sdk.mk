@@ -16,20 +16,23 @@
  # so agrees to indemnify Cypress against all liability.
 #
 
-NAME := Lib_iotconnect-lib
+NAME := Lib_iotc-sdk
 
 
 
 $(NAME)_SOURCES := \
-	src/iotconnect_common.c \
-	src/iotconnect_discovery.c \
-	src/iotconnect_event.c \
-	src/iotconnect_lib.c \
-	src/iotconnect_telemetry.c \
+	src/iotc_sdk.c \
+	src/iotc_wiced_discovery.c \
+	src/iotc_wiced_mqtt.c
 
-$(NAME)_COMPONENTS := utilities/cJSON-iotconnect
+$(NAME)_COMPONENTS := \
+	protocols/iotc-c-lib \
+	protocols/MQTT \
+	protocols/SNTP \
+	protocols/HTTP_client_v2
 
 #make it visible for the applications which take advantage of this lib
 GLOBAL_INCLUDES := include
 
+# -fdiagnostics-color=never use this to avoid garbled output in WICED-Studio on linux
 $(NAME)_CFLAGS += -std=c99 -Wall -Werror -fdiagnostics-color=never
