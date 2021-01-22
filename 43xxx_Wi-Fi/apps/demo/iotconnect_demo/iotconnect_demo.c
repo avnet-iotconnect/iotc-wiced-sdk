@@ -39,16 +39,15 @@
 
 #include <time.h>
 
-
-#include "mqtt_api.h"
-#include "sntp.h"
+#include <mqtt_api.h>
+#include <sntp.h>
 
 #include "iotconnect_client_config.h"
 
 #include "iotconnect_lib.h"
 #include "iotconnect_telemetry.h"
 #include "iotc_sdk.h"
-#include "resources.h"
+#include <resources.h>
 
 #define MQTT_MAX_RESOURCE_SIZE              (4000)
 #define MAIN_APP_VERSION                    "00.00.01"
@@ -84,28 +83,12 @@ static void on_command(IOTCL_EVENT_DATA data) {
     }
     const char *ack = IOTCL_CreateAckStringAndDestroyEvent(data, false, "Not implemented");
     if (NULL != ack) {
-        WPRINT_APP_INFO(("Sent CMD ack: %s\n", ack));
         IotConnectSdk_SendPacket(ack);
+        WPRINT_APP_INFO(("Sent CMD ack: %s\n", ack));
         //wiced_rtos_send_asynchronous_event( &mqtt_send_thread, mqtt_send_handler, (void*)ack );
         free((void *) ack);
     } else {
         WPRINT_APP_ERROR(("Error while creating the ack JSON\n"));
-    }
-}
-
-static void on_connection_status(IOT_CONNECT_STATUS status) {
-    // Add your own status handling
-    switch (status) {
-        case MQTT_CONNECTED:
-            WPRINT_APP_INFO(("IoTConnect MQTT Connected\n"));
-            break;
-        case MQTT_DISCONNECTED:
-            WPRINT_APP_INFO(("IoTConnect MQTT Disonnected\n"));
-            break;
-        case MQTT_FAILED:
-        default:
-            WPRINT_APP_ERROR(("IoTConnect MQTT ERROR\n"));
-            break;
     }
 }
 
@@ -115,18 +98,17 @@ static void on_ota(IOTCL_EVENT_DATA data) {
     bool success = false;
     if (NULL != url) {
         const char *version = IOTCL_CloneSwVersion(data);
-        WPRINT_APP_ERROR(("Received OTA Download URL: %s for version %s \n", url, version));
+        WPRINT_APP_INFO(("Received OTA Download URL: %s for version %s \n", url, version));
         message = "OTA not supported";
         free((void *) url);
         free((void *) version);
     } else {
-        // compatibility with older events
-        // This app does not support FOTA with older back ends, but the user can add the functionality
+        // compatibility with older than 2.0 back end events
         const char *command = IOTCL_CloneCommand(data);
         if (NULL != command) {
-            // URL will be inside the command
+            // URL will be the command argument
             WPRINT_APP_INFO(("Command is: %s\n", command));
-            message = "Back end version 1.0 not supported by the app";
+            message = "OTA not supported";
             free((void *) command);
         }
     }
@@ -136,6 +118,27 @@ static void on_ota(IOTCL_EVENT_DATA data) {
         //wiced_rtos_send_asynchronous_event( &mqtt_send_thread, mqtt_send_handler, (void*)ack );
         IotConnectSdk_SendPacket(ack);
         free((void *) ack);
+    }
+}
+
+static void on_connection_status(IOT_CONNECT_STATUS status, void *data) {
+    // Add your own status handling
+    switch (status) {
+        case MQTT_CONNECTED:
+            WPRINT_APP_INFO(("IoTConnect MQTT Connected\n"));
+            break;
+        case MQTT_DISCONNECTED:
+            WPRINT_APP_INFO(("IoTConnect MQTT Disconnected\n"));
+            break;
+        case MQTT_PUBLISHED: {
+            wiced_mqtt_msgid_t *data_ptr = (wiced_mqtt_msgid_t *) data;
+            WPRINT_APP_INFO(("Packet ID %u published\n", *data_ptr));
+        }
+            break;
+        case MQTT_FAILED:
+        default:
+            WPRINT_APP_ERROR(("IoTConnect MQTT ERROR\n"));
+            break;
     }
 }
 
@@ -149,9 +152,9 @@ static void publish_telemetry() {
 
     const char *str = IOTCL_CreateSerializedString(msg, false);
     IOTCL_TelemetryDestroy(msg);
-    WPRINT_APP_INFO(("Sending: %s\n", str));
     //wiced_rtos_send_asynchronous_event( &mqtt_send_thread, mqtt_send_handler, (void*)str );
-    IotConnectSdk_SendPacket(str);
+    wiced_mqtt_msgid_t pktId = IotConnectSdk_SendPacket(str);
+    WPRINT_APP_INFO(("Sending packet ID %u: %s\n", pktId, str));
     IOTCL_DestroySerialized(str);
 }
 
@@ -171,6 +174,16 @@ void application_start(void) {
     /* Bringup the network interface */
     wiced_network_up(WICED_STA_INTERFACE, WICED_USE_EXTERNAL_DHCP_SERVER, NULL);
 
+#define PREFIX_LEN (sizeof("wiced-") - 1)
+    char duid[PREFIX_LEN + 8] = "wiced-test";
+    wiced_mac_t mac;
+    if (wiced_wifi_get_mac_address(&mac) == WICED_SUCCESS) {
+        for (int i = 0; i < 6; i++) {
+            sprintf(&duid[PREFIX_LEN + i * 2], "%0x", mac.octet[i]);
+        }
+    }
+    WPRINT_APP_INFO(("DUID: %.*s...\n", PREFIX_LEN + 5, duid));
+
 
     IOTCONNECT_CLIENT_CONFIG *config = IotConnectSdk_InitAndGetConfig();
 
@@ -188,15 +201,8 @@ void application_start(void) {
     sntp_start_auto_time_sync(1 * DAYS);
     WPRINT_APP_INFO(("Time obtained.\n"));
 
-    for (int i = 0; i < 1; i++) {
-        uint64_t time_ms;
-        wiced_time_get_utc_time_ms((wiced_utc_time_ms_t * ) & time_ms);
-        WPRINT_APP_INFO(("WICED time now. %llu\n", time_ms));
-        WPRINT_APP_INFO(("Time now. %llu\n", time(NULL)));
-    }
-
+    config->duid = duid;
     config->cpid = IOTCONNECT_CPID;
-    config->duid = IOTCONNECT_DUID;
     config->env = IOTCONNECT_ENV;
 
     config->cmd_cb = on_command;

@@ -45,7 +45,8 @@ $(NAME)_SOURCES := \
 	iotconnect_demo.c
 
 $(NAME)_COMPONENTS := \
-    libraries/protocols/iotc-sdk
+    libraries/protocols/iotc-sdk 
+
 
 WIFI_CONFIG_DCT_H := wifi_config_dct.h
 

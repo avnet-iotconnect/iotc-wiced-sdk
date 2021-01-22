@@ -35,4 +35,4 @@ $(NAME)_COMPONENTS := \
 GLOBAL_INCLUDES := include
 
 # -fdiagnostics-color=never use this to avoid garbled output in WICED-Studio on linux
-$(NAME)_CFLAGS += -std=c99 -Wall -Werror -fdiagnostics-color=never -DWPRINT_ENABLE_LIB_ERROR -DWPRINT_ENABLE_APP_ERROR
+$(NAME)_CFLAGS += -std=c99 -Wall -Werror -fdiagnostics-color=never
