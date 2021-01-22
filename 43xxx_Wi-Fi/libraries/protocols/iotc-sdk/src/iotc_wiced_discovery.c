@@ -18,7 +18,7 @@
 
 static const char *root_ca_certificate = CERT_GODADDY_INT_SECURE_G2;
 
-static char data_buff[1024];
+static char data_buff[RECEIVE_BUFFER_MAX_SIZE];
 static http_client_t client;
 static http_request_t request;
 static wiced_semaphore_t semaphore;

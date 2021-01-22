@@ -1,36 +1,43 @@
+This repository contains IoTConnect WICED SDK and samples intended for use with Avnet's IoTConnect platform.
+
+The sample shows how to make use of the IoTConnect SDK to connect your devices to IoTConnect.
+
 This source has been tested with WICED Studio version 6.6.0
 
-This demo supports only the CA Certificates (x509) based authentication for IoTConnect
+This sdk and the demo supports only the CA Certificates (x509) based authentication for IoTConnect
 
 ### Installation
   
 * Download and install the WICED Studio. Note the location of the SDK directory.
-* Clone or download the following this repo.
+* Clone or download the this repo.
 * Clone or download iotc-c-lib tag v1.1.0
 
-* The following git commands can be used to pull all repos:
+* The following git commands can be used to pull the repos:
 
 ```bash
-git clone --depth 1 --branch v1.7.13 git@github.com:Avnet/iotc-wiced.git
+git clone --depth 1 git@github.com:Avnet/iotc-wiced-sdk.git
 git clone --depth 1 --branch v1.1.0 git://github.com/Avnet/iotc-c-lib.git
 ```
  
-* Copy the contents of the 43xxx_Wi-Fi directory over the same directory inside the WICED SDK directory.
+* Copy the contents of the 43xxx_Wi-Fi directory over the same directory inside the WICED SDK root directory.
 * Copy the contents of the iotc-c-lib directory over the WICED SDK libraries/protocols/iotc-c-lib directory. 
-* Alternatively, if you wish to maintain source control,  you can create (symbolic or windows) links of this repo into the corresponding WICED SDK directories.
+* Alternatively, if you wish to maintain source control, you can create (symbolic or windows) links of this 
+repo into the corresponding WICED SDK directories, but don't use git --depth argument.
 
 ### Demo Setup
 
 * Launch the WICED IDE.
-* Enter your wifi username and password into 43xxx_Wi-Fi/apps/demo/iotconnect_demo/wifi_config.dct.
-* Enter your IoTConnect CPID, Enviroment and evice uniqie ID at 43xxx_Wi-Fi/apps/demo/iotconnect_demo/iotconnect_client_config.h.
-* Use linux tools provided in tools/ecc-certs at the root of this repository to create certificates for your device. 
-Follow the instructions in that directory.
-* Place your device certificate and key in the 43xxx_Wi-Fi/resources/apps/iotconnect_demo/ directory.
+* Enter your WiFi username and password into 43xxx_Wi-Fi/apps/demo/iotconnect_demo/wifi_config.dct.
+* Enter your IoTConnect CPID and Enviroment at 43xxx_Wi-Fi/apps/demo/iotconnect_demo/iotconnect_client_config.h.
+* Use linux tools provided in tools/ecc-certs at the root of iotc-c-lib repo in order to to create certificates
+ for your device. Follow the instructions in that directory.
+* The device ID will be generated based on your WiFi MAC address with prefix **wiced-**. For example: **wiced-abcdef123456** 
+* Place your device certificate and key in the 43xxx_Wi-Fi/resources/apps/iotconnect_demo/ directory 
+in place of client.cer and privkey.cer
 * Create a target matching your platform in the right side panel *Make Target" of the C/C++ perspective 
 "demo.iotconnect_demo-CYW943907AEVAL1F download run". Replace CYW943907AEVAL1F with your own platform string.
-* For Laird EWB: you can use the target *demo.iotconnect_demo-LAIRD_EWB-ThreadX-NetX-SDIO-debug download download_apps run*. T
-his target will also make it possible to debug the software as described in the section below.
+* For Laird EWB: you can use the target *demo.iotconnect_demo-LAIRD_EWB-ThreadX-NetX-SDIO-debug download download_apps run*. 
+This target will also make it possible to debug the software as described in the debugging section below.
 
 ### Debugging with Laird EWB
 
