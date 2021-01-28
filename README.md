@@ -34,13 +34,84 @@ repo into the corresponding WICED SDK directories, but don't use git --depth arg
 * The device ID will be generated based on your lower case WiFi MAC address with prefix **wiced-**. 
 For example: **wiced-a0c1ef123456**. You can obtain your WiFi MAC by running the demo on your board.
 The MAC address will be printed in the console. Note that the device ID needs to be unique across your CPID, and some 
-chips may not use a unique MAC by default. See the WICED SDK instructions on how to configure a custom MAC.  
+chips may not use a unique MAC by default. See the WICED SDK instructions on how to configure a custom MAC.
+* Ensure that your device is added to IoTConnect.
 * Place your device certificate and key in the 43xxx_Wi-Fi/resources/apps/iotconnect_demo/ directory 
 in place of client.cer and privkey.cer
 * Create a target matching your platform in the right side panel *Make Target" of the C/C++ perspective 
 "demo.iotconnect_demo-CYW943907AEVAL1F download run". Replace CYW943907AEVAL1F with your own platform string.
 * For Laird EWB: you can use the target *demo.iotconnect_demo-LAIRD_EWB-ThreadX-NetX-SDIO-debug download download_apps run*. 
 This target will also make it possible to debug the software as described in the debugging section below.
+
+### Integrating the SDK Into your own project.
+
+The demo should contain most of the code that you can re-use and add to your application. 
+
+In order to use the SDK in your own project, ensure you follow the steps overlaying your WICED SDK and 
+cloning the iotc-c-lib are followed.
+
+Also ensure that your main obtains and obtains the current time before telemetry messages are sent.
+
+In your Makefile include the iotc-sdk library from this repo.
+
+Before the library is initialized, set up the HTTP SEC_TAGs 10702 and 10703 on the modem per nrf_cert_store.h, 
+or call:
+
+```c
+    err = NrfCertStore_ProvisionApiCerts();
+    if (err) {
+        printk("Failed to provision API certificates!\n");
+    }
+
+    err = NrfCertStore_ProvisionOtaCerts();
+    if (err) {
+        printk("Failed to provision OTA certificates!\n");
+    }
+```
+
+Follow the certificates section to set up SEC_TAG 10701 with CA Cert, your device certificate and key.  
+
+In your application code, initialize the SDK:
+
+```editorconfig
+    IOTCONNECT_CLIENT_CONFIG *config = IotConnectSdk_InitAndGetConfig();
+    config->cpid = "Your CPID";
+    config->duid = "Your Cevice Unique ID";
+    config->env = "Your Environment";
+    config->cmd_cb = on_command;
+    config->ota_cb = on_ota;
+    config->status_cb = on_connection_status;
+
+    int result = IotConnectSdk_Init();
+    if (0 != result) {
+        printk("Failed to initialize the SDK\n");
+    }
+
+```
+
+You can assign callbacks to NULL or implement on_command, on_ota, and on_connection_status depending on your needs. 
+
+Ether from a task or your main code, call *IotConnectSdk_Loop()* periodically. The function  will 
+call the MQTT loop to receive messages. Calling this function more frequently will ensure 
+that your commands and OTA mesages are received quicker. Call the function more frequently than CONFIG_MQTT_KEEPALIVE
+configured in KConfig.
+
+Set send telemtery messages by calling the iotc-c-lib the library telemetry message functions and send them with 
+*IotConnectSdk_SendPacket()*:
+
+```editorconfig
+    IOTCL_MESSAGE_HANDLE msg = IOTCL_TelemetryCreate(IotConnectSdk_GetLibConfig());
+    IOTCL_TelemetrySetString(msg, "your-name", "your value");
+    // etc.
+        const char *str = IOTCL_CreateSerializedString(msg, false);
+    IOTCL_TelemetryDestroy(msg);
+    IotConnectSdk_SendPacket(str);
+    IOTCL_DestroySerialized(str);
+
+``` 
+
+Call *IotConnectSdk_Disconnect()* when done.
+
 
 ### Debugging with Laird EWB
 
