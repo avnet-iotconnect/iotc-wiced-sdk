@@ -50,26 +50,10 @@ The demo should contain most of the code that you can re-use and add to your app
 In order to use the SDK in your own project, ensure you follow the steps overlaying your WICED SDK and 
 cloning the iotc-c-lib are followed.
 
-Also ensure that your main obtains and obtains the current time before telemetry messages are sent.
-
 In your Makefile include the iotc-sdk library from this repo.
 
-Before the library is initialized, set up the HTTP SEC_TAGs 10702 and 10703 on the modem per nrf_cert_store.h, 
-or call:
-
-```c
-    err = NrfCertStore_ProvisionApiCerts();
-    if (err) {
-        printk("Failed to provision API certificates!\n");
-    }
-
-    err = NrfCertStore_ProvisionOtaCerts();
-    if (err) {
-        printk("Failed to provision OTA certificates!\n");
-    }
-```
-
-Follow the certificates section to set up SEC_TAG 10701 with CA Cert, your device certificate and key.  
+Ensure that your main obtains the current time before telemetry messages are sent. time() function implementation 
+is also required. Your application should also load the device certificate and key and provide it to the library.
 
 In your application code, initialize the SDK:
 
@@ -83,41 +67,34 @@ In your application code, initialize the SDK:
     config->status_cb = on_connection_status;
 
     int result = IotConnectSdk_Init();
-    if (0 != result) {
-        printk("Failed to initialize the SDK\n");
-    }
-
 ```
 
 You can assign callbacks to NULL or implement on_command, on_ota, and on_connection_status depending on your needs. 
 
-Ether from a task or your main code, call *IotConnectSdk_Loop()* periodically. The function  will 
-call the MQTT loop to receive messages. Calling this function more frequently will ensure 
-that your commands and OTA mesages are received quicker. Call the function more frequently than CONFIG_MQTT_KEEPALIVE
-configured in KConfig.
-
-Set send telemtery messages by calling the iotc-c-lib the library telemetry message functions and send them with 
-*IotConnectSdk_SendPacket()*:
+Set send telemetry messages by calling the iotc-c-lib the library telemetry message functions and send them with 
+*IotConnectSdk_SendPacket()*. The packet ID obtained can be used for cross-referencing purposes in the 
+MQTT_PUBLISHED event of the SDK:
 
 ```editorconfig
     IOTCL_MESSAGE_HANDLE msg = IOTCL_TelemetryCreate(IotConnectSdk_GetLibConfig());
+    
     IOTCL_TelemetrySetString(msg, "your-name", "your value");
-    // etc.
-        const char *str = IOTCL_CreateSerializedString(msg, false);
-    IOTCL_TelemetryDestroy(msg);
-    IotConnectSdk_SendPacket(str);
-    IOTCL_DestroySerialized(str);
 
+    const char *str = IOTCL_CreateSerializedString(msg, false);
+    IOTCL_TelemetryDestroy(msg);
+    wiced_mqtt_msgid_t pktId = IotConnectSdk_SendPacket(str);
+    WPRINT_APP_INFO(("Sending packet ID %u: %s\n", pktId, str));
+    IOTCL_DestroySerialized(str);
 ``` 
 
 Call *IotConnectSdk_Disconnect()* when done.
-
 
 ### Debugging with Laird EWB
 
 (from https://community.cypress.com/thread/32393?start=0&tstart=0)
 
-Ensure that the following items are modified in the default debug configuration before debugging:
+Ensure that the following items are modified in the default debug configuration for your OS 
+(eg. 43xxx_Wi-Fi_Debug_Linux64) before debugging:
 
 * In the Debug Configuration Startup tab, add below instruction into the area below the Halt option:
  

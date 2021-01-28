@@ -39,7 +39,6 @@
 
 #include <time.h>
 
-#include <mqtt_api.h>
 #include <sntp.h>
 
 #include "iotconnect_client_config.h"
@@ -49,10 +48,8 @@
 #include "iotc_sdk.h"
 #include <resources.h>
 
-#define MQTT_MAX_RESOURCE_SIZE              (4000)
+#define MQTT_MAX_RESOURCE_SIZE              4000
 #define MAIN_APP_VERSION                    "00.00.01"
-
-//static wiced_worker_thread_t mqtt_send_thread;
 
 static wiced_result_t get_credentials_from_resources(wiced_mqtt_security_t *s);
 
@@ -65,16 +62,6 @@ time_t time(time_t *timer) {
     return time_ms / 1000;
 }
 
-#if 0
-static wiced_result_t mqtt_send_handler( void* arg ) {
-    const char* msg = ( const char*) arg;
-    WPRINT_APP_INFO(("out: %s\n", msg));
-    IotConnectSdk_SendPacket(msg);
-    IOTCL_DestroySerialized(msg);
-    return WICED_SUCCESS;
-}
-#endif
-
 static void on_command(IOTCL_EVENT_DATA data) {
     const char *command = IOTCL_CloneCommand(data);
     if (NULL != command) {
@@ -85,7 +72,6 @@ static void on_command(IOTCL_EVENT_DATA data) {
     if (NULL != ack) {
         IotConnectSdk_SendPacket(ack);
         WPRINT_APP_INFO(("Sent CMD ack: %s\n", ack));
-        //wiced_rtos_send_asynchronous_event( &mqtt_send_thread, mqtt_send_handler, (void*)ack );
         free((void *) ack);
     } else {
         WPRINT_APP_ERROR(("Error while creating the ack JSON\n"));
@@ -115,7 +101,6 @@ static void on_ota(IOTCL_EVENT_DATA data) {
     const char *ack = IOTCL_CreateAckStringAndDestroyEvent(data, success, message);
     if (NULL != ack) {
         WPRINT_APP_INFO(("Sent OTA ack: %s\n", ack));
-        //wiced_rtos_send_asynchronous_event( &mqtt_send_thread, mqtt_send_handler, (void*)ack );
         IotConnectSdk_SendPacket(ack);
         free((void *) ack);
     }
@@ -144,15 +129,12 @@ static void on_connection_status(IOT_CONNECT_STATUS status, void *data) {
 
 static void publish_telemetry() {
     IOTCL_MESSAGE_HANDLE msg = IOTCL_TelemetryCreate(IotConnectSdk_GetLibConfig());
-    wiced_rtos_delay_milliseconds(1000);
 
     IOTCL_TelemetrySetString(msg, "version", MAIN_APP_VERSION);
-
     IOTCL_TelemetrySetNumber(msg, "cpu", 33);
 
     const char *str = IOTCL_CreateSerializedString(msg, false);
     IOTCL_TelemetryDestroy(msg);
-    //wiced_rtos_send_asynchronous_event( &mqtt_send_thread, mqtt_send_handler, (void*)str );
     wiced_mqtt_msgid_t pktId = IotConnectSdk_SendPacket(str);
     WPRINT_APP_INFO(("Sending packet ID %u: %s\n", pktId, str));
     IOTCL_DestroySerialized(str);
@@ -163,15 +145,7 @@ void application_start(void) {
 
     ret = wiced_init();
 
-#if 0
-    ret = wiced_rtos_create_worker_thread( &mqtt_send_thread, WICED_DEFAULT_LIBRARY_PRIORITY, 4096, 4 );
-    if (ret != WICED_SUCCESS) {
-        WPRINT_APP_ERROR(("Error while trying to create a worker thread\n"));
-        return;
-    }
-#endif
-
-    /* Bringup the network interface */
+    /* Bring up the network interface */
     wiced_network_up(WICED_STA_INTERFACE, WICED_USE_EXTERNAL_DHCP_SERVER, NULL);
 
 #define PREFIX_LEN (sizeof("wiced-") - 1)
@@ -226,7 +200,6 @@ void application_start(void) {
 
     }
     IotConnectSdk_Disconnect();
-    //wiced_rtos_delete_worker_thread( &mqtt_send_thread );
 
     /* Free security resources, only needed at initialization */
     resource_free_readonly_buffer(&resources_apps_DIR_iotconnect_demo_DIR_rootca_cer, config->security.ca_cert);
