@@ -175,13 +175,14 @@ void application_start(void) {
     wiced_network_up(WICED_STA_INTERFACE, WICED_USE_EXTERNAL_DHCP_SERVER, NULL);
 
 #define PREFIX_LEN (sizeof("wiced-") - 1)
-    char duid[PREFIX_LEN + 8] = "wiced-test";
     wiced_mac_t mac;
+    char duid[PREFIX_LEN + sizeof(mac.octet) + 1 /* null */] = "wiced-test";
     if (wiced_wifi_get_mac_address(&mac) == WICED_SUCCESS) {
-        for (int i = 0; i < 6; i++) {
-            sprintf(&duid[PREFIX_LEN + i * 2], "%0x", mac.octet[i]);
+        for (int i = 0; i < sizeof(mac.octet); i++) {
+            sprintf(&duid[PREFIX_LEN + i * 2], "%02x", mac.octet[i]);
         }
     }
+    /* just print 5 characters */
     WPRINT_APP_INFO(("DUID: %.*s...\n", PREFIX_LEN + 5, duid));
 
 
