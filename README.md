@@ -32,7 +32,7 @@ repo into the corresponding WICED SDK directories, but don't use git --depth arg
 * Use linux tools provided in tools/ecc-certs at the root of iotc-c-lib repo in order to to create certificates
  for your device. Follow the instructions in that directory.
 * The device ID will be generated based on your lower case WiFi MAC address with prefix **wiced-**. 
-For example: **wiced-abcdef123456**. You can obtain your WiFi MAC by running the demo on your board.
+For example: **wiced-a0c1ef123456**. You can obtain your WiFi MAC by running the demo on your board.
 The MAC address will be printed in the console. Note that the device ID needs to be unique across your CPID, and some 
 chips may not use a unique MAC by default. See the WICED SDK instructions on how to configure a custom MAC.  
 * Place your device certificate and key in the 43xxx_Wi-Fi/resources/apps/iotconnect_demo/ directory 
