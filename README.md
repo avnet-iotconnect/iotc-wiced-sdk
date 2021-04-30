@@ -16,7 +16,7 @@ This sdk and the demo supports only the CA Certificates (x509) based authenticat
 
 ```bash
 git clone --depth 1 git@github.com:Avnet/iotc-wiced-sdk.git
-git clone --depth 1 --branch v1.1.0 git://github.com/Avnet/iotc-c-lib.git
+git clone --depth 1 --branch v2.0.0 git://github.com/Avnet/iotc-c-lib.git
 ```
  
 * Copy the contents of the 43xxx_Wi-Fi directory over the same directory inside the WICED SDK root directory.

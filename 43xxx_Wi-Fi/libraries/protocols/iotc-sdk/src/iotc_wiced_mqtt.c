@@ -79,7 +79,7 @@ mqtt_sdk_publish(wiced_mqtt_object_t mqtt_obj, uint8_t qos, char *topic, uint8_t
 
 
 static wiced_mqtt_object_t mqtt_object;
-static IOTCONNECT_MQTT_CONFIG *config;
+static IotconnectMqttConfig *config;
 static bool is_connected = false;
 
 static wiced_ip_address_t broker_address;
@@ -228,7 +228,7 @@ mqtt_sdk_publish(wiced_mqtt_object_t mqtt_obj, uint8_t qos, char *topic, uint8_t
 }
 
 wiced_result_t
-iotc_wiced_mqtt_init(IOTCONNECT_MQTT_CONFIG *_config, wiced_mqtt_security_t *security) {
+iotc_wiced_mqtt_init(IotconnectMqttConfig *_config, wiced_mqtt_security_t *security) {
     wiced_result_t ret = WICED_SUCCESS;
 
     if (_config == NULL) {

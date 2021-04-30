@@ -1,6 +1,7 @@
 #pragma once
 
 #include <wiced.h>
+#include <mqtt_common.h>
 #include "iotconnect_lib.h"
 
 #ifdef __cplusplus
@@ -14,9 +15,9 @@ typedef enum {
     MQTT_PUBLISHED,
     MQTT_FAILED,
     // TODO: Sync statuses etc.
-} IOT_CONNECT_STATUS;
+} IotconnectConnectionStatus;
 
-typedef void (*IOT_CONNECT_STATUS_CB)(IOT_CONNECT_STATUS status, void* event_data);
+typedef void (*IotConnectStatusCallback)(IotconnectConnectionStatus status, void* event_data);
 
 typedef struct {
     /* IoTConnect device connection parameters */
@@ -30,26 +31,26 @@ typedef struct {
     int num_discovery_tires; // How many times to retry discovery Default: 3
 
     /* callbacks */
-    IOTCL_OTA_CALLBACK ota_cb; // callback for OTA events.
-    IOTCL_COMMAND_CALLBACK cmd_cb; // callback for command events.
-    IOTCL_MESSAGE_CALLBACK msg_cb; // callback for ALL messages, including the specific ones like cmd or ota callback.
-    IOT_CONNECT_STATUS_CB status_cb; // callback for connection status
-} IOTCONNECT_CLIENT_CONFIG;
+    IotclOtaCallback ota_cb; // callback for OTA events.
+    IotclCommandCallback cmd_cb; // callback for command events.
+    IotclMessageCallback msg_cb; // callback for ALL messages, including the specific ones like cmd or ota callback.
+    IotConnectStatusCallback status_cb; // callback for connection status
+} IotconnectClientConfig;
 
-IOTCONNECT_CLIENT_CONFIG *IotConnectSdk_InitAndGetConfig();
+IotconnectClientConfig *iotconnect_sdk_init_and_get_config();
 
-wiced_result_t IotConnectSdk_Init();
+wiced_result_t iotconnect_sdk_init();
 
-bool IotConnectSdk_IsConnected();
+bool iotconnect_sdk_is_connected();
 
-IOTCL_CONFIG *IotConnectSdk_GetLibConfig();
+IotclConfig *iotconnect_sdk_get_lib_config();
 
-wiced_result_t IotConnectSdk_SendPacket(const char *data);
-wiced_result_t IotConnectSdk_SendDataPacket(uint8_t *data, size_t len);
+wiced_result_t iotconnect_sdk_send_packet(const char *data);
+wiced_result_t iotconnect_sdk_send_data_packet(uint8_t *data, size_t len);
 
-void IotConnectSdk_Loop();
+void iotconnect_sdk_loop();
 
-void IotConnectSdk_Disconnect();
+void iotconnect_sdk_disconnect();
 
 #ifdef __cplusplus
 }

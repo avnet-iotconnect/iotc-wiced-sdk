@@ -36,11 +36,9 @@
  */
 
 #include "wiced.h"
-
 #include <time.h>
-
 #include <sntp.h>
-
+#include <mqtt_common.h>
 #include "iotconnect_client_config.h"
 
 #include "iotconnect_lib.h"
@@ -62,15 +60,15 @@ time_t time(time_t *timer) {
     return time_ms / 1000;
 }
 
-static void on_command(IOTCL_EVENT_DATA data) {
-    const char *command = IOTCL_CloneCommand(data);
+static void on_command(IotclEventData data) {
+    const char *command = iotcl_clone_command(data);
     if (NULL != command) {
         WPRINT_APP_INFO(("Received command: %s\n", command));
         free((void *) command);
     }
-    const char *ack = IOTCL_CreateAckStringAndDestroyEvent(data, false, "Not implemented");
+    const char *ack = iotcl_create_ack_string_and_destroy_event(data, false, "Not implemented");
     if (NULL != ack) {
-        IotConnectSdk_SendPacket(ack);
+        iotconnect_sdk_send_packet(ack);
         WPRINT_APP_INFO(("Sent CMD ack: %s\n", ack));
         free((void *) ack);
     } else {
@@ -78,19 +76,19 @@ static void on_command(IOTCL_EVENT_DATA data) {
     }
 }
 
-static void on_ota(IOTCL_EVENT_DATA data) {
+static void on_ota(IotclEventData data) {
     const char *message = NULL;
-    char *url = IOTCL_CloneDownloadUrl(data, 0);
+    char *url = iotcl_clone_download_url(data, 0);
     bool success = false;
     if (NULL != url) {
-        const char *version = IOTCL_CloneSwVersion(data);
+        const char *version = iotcl_clone_sw_version(data);
         WPRINT_APP_INFO(("Received OTA Download URL: %s for version %s \n", url, version));
         message = "OTA not supported";
         free((void *) url);
         free((void *) version);
     } else {
         // compatibility with older than 2.0 back end events
-        const char *command = IOTCL_CloneCommand(data);
+        const char *command = iotcl_clone_command(data);
         if (NULL != command) {
             // URL will be the command argument
             WPRINT_APP_INFO(("Command is: %s\n", command));
@@ -98,15 +96,15 @@ static void on_ota(IOTCL_EVENT_DATA data) {
             free((void *) command);
         }
     }
-    const char *ack = IOTCL_CreateAckStringAndDestroyEvent(data, success, message);
+    const char *ack = iotcl_create_ack_string_and_destroy_event(data, success, message);
     if (NULL != ack) {
         WPRINT_APP_INFO(("Sent OTA ack: %s\n", ack));
-        IotConnectSdk_SendPacket(ack);
+        iotconnect_sdk_send_packet(ack);
         free((void *) ack);
     }
 }
 
-static void on_connection_status(IOT_CONNECT_STATUS status, void *data) {
+static void on_connection_status(IotconnectConnectionStatus status, void *data) {
     // Add your own status handling
     switch (status) {
         case MQTT_CONNECTED:
@@ -128,16 +126,16 @@ static void on_connection_status(IOT_CONNECT_STATUS status, void *data) {
 }
 
 static void publish_telemetry() {
-    IOTCL_MESSAGE_HANDLE msg = IOTCL_TelemetryCreate(IotConnectSdk_GetLibConfig());
+    IotclMessageHandle msg = iotcl_telemetry_create(iotconnect_sdk_get_lib_config());
 
-    IOTCL_TelemetrySetString(msg, "version", MAIN_APP_VERSION);
-    IOTCL_TelemetrySetNumber(msg, "cpu", 33);
+    iotcl_telemetry_set_string(msg, "version", MAIN_APP_VERSION);
+    iotcl_telemetry_set_number(msg, "cpu", 33);
 
-    const char *str = IOTCL_CreateSerializedString(msg, false);
-    IOTCL_TelemetryDestroy(msg);
-    wiced_mqtt_msgid_t pktId = IotConnectSdk_SendPacket(str);
+    const char *str = iotcl_create_serialized_string(msg, false);
+    iotcl_telemetry_destroy(msg);
+    wiced_mqtt_msgid_t pktId = iotconnect_sdk_send_packet(str);
     WPRINT_APP_INFO(("Sending packet ID %u: %s\n", pktId, str));
-    IOTCL_DestroySerialized(str);
+    iotcl_destroy_serialized(str);
 }
 
 void application_start(void) {
@@ -160,7 +158,7 @@ void application_start(void) {
     WPRINT_APP_INFO(("DUID: %.*s...\n", PREFIX_LEN + 5, duid));
 
 
-    IOTCONNECT_CLIENT_CONFIG *config = IotConnectSdk_InitAndGetConfig();
+    IotconnectClientConfig *config = iotconnect_sdk_init_and_get_config();
 
     ret = get_credentials_from_resources(&config->security);
 
@@ -184,14 +182,14 @@ void application_start(void) {
     config->ota_cb = on_ota;
     config->status_cb = on_connection_status;
 
-    ret = IotConnectSdk_Init();
+    ret = iotconnect_sdk_init();
     if (WICED_SUCCESS != ret) {
         WPRINT_APP_ERROR(("Failed to initialize the SDK\n"));
         return;
     }
 
     int i = 0;
-    while (ret == IotConnectSdk_IsConnected() && i < 10) {
+    while (ret == iotconnect_sdk_is_connected() && i < 10) {
 
         publish_telemetry();
 
@@ -199,7 +197,7 @@ void application_start(void) {
         i++;
 
     }
-    IotConnectSdk_Disconnect();
+    iotconnect_sdk_disconnect();
 
     /* Free security resources, only needed at initialization */
     resource_free_readonly_buffer(&resources_apps_DIR_iotconnect_demo_DIR_rootca_cer, config->security.ca_cert);

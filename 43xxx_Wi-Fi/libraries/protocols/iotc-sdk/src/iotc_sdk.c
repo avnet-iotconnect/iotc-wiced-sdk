@@ -10,13 +10,13 @@
 #define IOTC_SDK_DEFAULT_NUM_DISCOVERY_TRIES 3
 
 
-IOTCL_SyncResponse *sync_response = NULL;
+IotclSyncResponse *sync_response = NULL;
 
-static IOTCONNECT_CLIENT_CONFIG config;
-static IOTCL_CONFIG lib_config;
-static IOTCONNECT_MQTT_CONFIG mqtt_config;
+static IotconnectClientConfig config;
+static IotclConfig lib_config;
+static IotconnectMqttConfig mqtt_config;
 
-static void report_sync_error(IOTCL_SyncResponse *response) {
+static void report_sync_error(IotclSyncResponse *response) {
     if (NULL == response) {
         WPRINT_LIB_INFO(("IOTC_SyncResponse is NULL. Out of memory?\n"));
         return;
@@ -56,21 +56,21 @@ static void report_sync_error(IOTCL_SyncResponse *response) {
     }
 }
 
-static void on_iotconnect_status(IOT_CONNECT_STATUS status, void *data) {
+static void on_iotconnect_status(IotconnectConnectionStatus status, void *data) {
     if (config.status_cb) {
         config.status_cb(status, data);
     }
 }
 
-void IotConnectSdk_Disconnect() {
-    IOTCL_DiscoveryFreeSyncResponse(sync_response);
+void iotconnect_sdk_disconnect() {
+    iotcl_discovery_free_sync_response(sync_response);
     sync_response = NULL;
     iotc_wiced_mqtt_disconnect();
     iotc_wiced_mqtt_deinit();
     WPRINT_LIB_INFO(("SDK Disconnected\n"));
 }
 
-wiced_mqtt_msgid_t IotConnectSdk_SendPacket(const char *data) {
+wiced_mqtt_msgid_t iotconnect_sdk_send_packet(const char *data) {
     wiced_mqtt_msgid_t ret = iotc_wiced_mqtt_publish((uint8_t *) data, strlen(data));
     if (ret == WICED_SUCCESS) {
         WPRINT_LIB_INFO(("Error: Failed to publish packet!"));
@@ -78,7 +78,7 @@ wiced_mqtt_msgid_t IotConnectSdk_SendPacket(const char *data) {
     return ret;
 }
 
-wiced_mqtt_msgid_t IotConnectSdk_SendDataPacket(uint8_t *data, size_t len) {
+wiced_mqtt_msgid_t iotconnect_sdk_send_data_packet(uint8_t *data, size_t len) {
     wiced_mqtt_msgid_t ret = iotc_wiced_mqtt_publish(data, len);
     if (ret == WICED_SUCCESS) {
         WPRINT_LIB_INFO(("Error: Failed to publish packet!"));
@@ -86,14 +86,14 @@ wiced_mqtt_msgid_t IotConnectSdk_SendDataPacket(uint8_t *data, size_t len) {
     return ret;
 }
 
-static void on_message_intercept(IOTCL_EVENT_DATA data, IotConnectEventType type) {
+static void on_message_intercept(IotclEventData data, IotConnectEventType type) {
     switch (type) {
         case ON_FORCE_SYNC:
-            IotConnectSdk_Disconnect();
+            iotconnect_sdk_disconnect();
             sync_response = iotc_wiced_discover(config.env, config.cpid, config.duid, config.num_discovery_tires);
             if (!sync_response || sync_response->ds != IOTCL_SR_OK) {
                 report_sync_error(sync_response);
-                IOTCL_DiscoveryFreeSyncResponse(sync_response);
+                iotcl_discovery_free_sync_response(sync_response);
                 sync_response = NULL;
                 return;
             }
@@ -101,7 +101,7 @@ static void on_message_intercept(IOTCL_EVENT_DATA data, IotConnectEventType type
             break;
         case ON_CLOSE:
             WPRINT_LIB_INFO(("Got a disconnect request. Closing the mqtt connection. Device restart is required.\n"));
-            IotConnectSdk_Disconnect();
+            iotconnect_sdk_disconnect();
             break;
         default:
             break; // not handling nay other messages
@@ -112,16 +112,16 @@ static void on_message_intercept(IOTCL_EVENT_DATA data, IotConnectEventType type
     }
 }
 
-IOTCL_CONFIG *IotConnectSdk_GetLibConfig() {
-    return IOTCL_GetConfig();
+IotclConfig *iotconnect_sdk_get_lib_config() {
+    return iotcl_get_config();
 }
 
-IOTCONNECT_CLIENT_CONFIG *IotConnectSdk_InitAndGetConfig() {
+IotconnectClientConfig *iotconnect_sdk_init_and_get_config() {
     memset(&config, 0, sizeof(config));
     return &config;
 }
 
-bool IotConnectSdk_IsConnected() {
+bool iotconnect_sdk_is_connected() {
     return iotc_wiced_mqtt_is_connected();
 }
 
@@ -131,7 +131,7 @@ void iotc_on_mqtt_data(const uint8_t *data, size_t len, const uint8_t *topic, co
     char *str = malloc(len + 1);
     memcpy(str, data, len);
     str[len] = 0;
-    if (!IOTCL_ProcessEvent(str)) {
+    if (!iotcl_process_event(str)) {
         WPRINT_LIB_INFO(("Error encountered while processing %s\n", str));
     }
     free(str);
@@ -139,7 +139,7 @@ void iotc_on_mqtt_data(const uint8_t *data, size_t len, const uint8_t *topic, co
 
 ///////////////////////////////////////////////////////////////////////////////////
 // this the Initialization os IoTConnect SDK
-wiced_result_t IotConnectSdk_Init() {
+wiced_result_t iotconnect_sdk_init() {
     wiced_result_t ret;
 
     if (0 == config.num_discovery_tires) {
@@ -147,7 +147,7 @@ wiced_result_t IotConnectSdk_Init() {
     }
 
     iotc_wiced_discovery_init();
-    IOTCL_SyncResponse *sync_response = iotc_wiced_discover(
+    IotclSyncResponse *sync_response = iotc_wiced_discover(
             config.env,
             config.cpid,
             config.duid,
@@ -157,7 +157,7 @@ wiced_result_t IotConnectSdk_Init() {
 
     if (!sync_response || sync_response->ds != IOTCL_SR_OK) {
         report_sync_error(sync_response);
-        IOTCL_DiscoveryFreeSyncResponse(sync_response);
+        iotcl_discovery_free_sync_response(sync_response);
         sync_response = NULL;
         return WICED_ERROR;
     }
@@ -186,7 +186,7 @@ wiced_result_t IotConnectSdk_Init() {
     // intercept internal processing and forward to client
     lib_config.event_functions.msg_cb = on_message_intercept;
 
-    if (!IOTCL_Init(&lib_config)) {
+    if (!iotcl_init(&lib_config)) {
         WPRINT_LIB_INFO(("Failed to initialize the IoTConnect Lib\n"));
     }
 

@@ -8,8 +8,8 @@
 
 #include <stdlib.h>
 #include <wiced.h>
-#include "wiced_tls.h"
 #include "http_client.h"
+#include "wiced_tls.h"
 
 #define PORT 443
 #define DNS_TIMEOUT_MS     10000
@@ -62,15 +62,15 @@ void iotc_wiced_discovery_deinit(void) {
     http_client_deinit(&client);
 }
 
-IOTCL_SyncResponse *iotc_wiced_discover(const char *env, const char *cpid, const char *duid, int num_tries) {
-    IOTCL_SyncResponse *sr = NULL;
+IotclSyncResponse *iotc_wiced_discover(const char *env, const char *cpid, const char *duid, int num_tries) {
+    IotclSyncResponse *sr = NULL;
     for (int tries = num_tries; !sr && (tries > 0); tries--) {
         // we will get data into the data buff, but for now, re-use the data buffer for the URL path
         sprintf(data_buff, "/api/sdk/cpid/%s/lang/M_C/ver/2.0/env/%s", cpid, env);
         synchronous_rest_call(IOTCONNECT_DISCOVERY_HOSTNAME, data_buff, NULL);
         if (strlen(data_buff) > 0) {
             char *json_start = strstr(data_buff, "{");
-            IOTCL_DiscoveryResponse *dr = IOTCL_DiscoveryParseDiscoveryResponse(
+            IotclDiscoveryResponse *dr = iotcl_discovery_parse_discovery_response(
                     json_start);
             WPRINT_LIB_INFO(("Agent URL: %s\n", dr->url));
             char post_data[IOTCONNECT_DISCOVERY_PROTOCOL_POST_DATA_MAX_LEN + 1] = {
@@ -81,10 +81,10 @@ IOTCL_SyncResponse *iotc_wiced_discover(const char *env, const char *cpid, const
             char sync_path[strlen(dr->path) + strlen("sync?") + 1];
             sprintf(sync_path, "%ssync?", dr->path);
             synchronous_rest_call(dr->host, sync_path, post_data);
-            IOTCL_DiscoveryFreeDiscoveryResponse(dr);
+            iotcl_discovery_free_discovery_response(dr);
             if (strlen(data_buff) > 0) {
                 // char * json_start = strstr(data_buff, "{");
-                sr = IOTCL_DiscoveryParseSyncResponse(
+                sr = iotcl_discovery_parse_sync_response(
                         data_buff);
                 if (NULL == sr) {
                     WPRINT_LIB_INFO(("Error: Error encountered while parsing Sync Response\n"));

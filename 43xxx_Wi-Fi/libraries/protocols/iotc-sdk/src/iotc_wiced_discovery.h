@@ -16,7 +16,7 @@ void iotc_wiced_discovery_init(void);
 // If we get NULL from discovery, it's possible, though rarely, that we got a multi-chunk http packet,
 // which is not supported by the http library.
 // The easiest thing to do is to just retry again.
-IOTCL_SyncResponse *iotc_wiced_discover(const char *env, const char *cpid, const char *duid, int num_tries);
+IotclSyncResponse *iotc_wiced_discover(const char *env, const char *cpid, const char *duid, int num_tries);
 
 void iotc_wiced_discovery_deinit(void);
 
