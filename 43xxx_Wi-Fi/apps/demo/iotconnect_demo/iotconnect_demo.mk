@@ -59,6 +59,7 @@ VALID_PLATFORMS := CY8CKIT_062 \
                    CYW943907AEVAL1F \
                    CYW9MCU7X9N364 \
                    CYW943455EVB_02 \
+                   CY8CKIT_062 \
 				   LAIRD_EWB
 
 GLOBAL_DEFINES     += APPLICATION_STACK_SIZE=8196
