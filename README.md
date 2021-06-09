@@ -40,7 +40,9 @@ chips may not use a unique MAC by default. See the WICED SDK instructions on how
 in place of client.cer and privkey.cer
 * Create a target matching your platform in the right side panel *Make Target" of the C/C++ perspective 
 "demo.iotconnect_demo-CYW943907AEVAL1F download run". Replace CYW943907AEVAL1F with your own platform string.
-* For Laird EWB: you can use the target *demo.iotconnect_demo-LAIRD_EWB-ThreadX-NetX-SDIO-debug download download_apps run*. 
+* For Laird EWB: you need to use target *demo.iotconnect_demo-LAIRD_EWB-ThreadX-NetX-SDIO-debug download download_apps run*. 
+This target will also make it possible to debug the software as described in the debugging section below.
+* For CY8CKIT-062-WiFi-BT  you need to use target *demo.iotconnect_demo-CY8CKIT_062-debug download download_apps run*
 This target will also make it possible to debug the software as described in the debugging section below.
 
 ### Integrating the SDK Into your own project.
@@ -68,7 +70,7 @@ In your application code, initialize the SDK:
 
     int result = IotConnectSdk_Init();
 ```
-
+ 
 You can assign callbacks to NULL or implement on_command, on_ota, and on_connection_status depending on your needs. 
 
 Set send telemetry messages by calling the iotc-c-lib the library telemetry message functions and send them with 
@@ -105,13 +107,11 @@ add-symbol-file build/eclipse_debug/last_built.elf 0x8000000
 ``` 
 
 * In the same Startup tab, clear Run Commands area, default is the phrase "stepi", which should be removed
-* In the Common tab, click the "Launch in background "
+* In the Common tab, click the "Launch in background"
 
 ### Debugging with CY8CKIT-062-WiFi-BT (PSoC 6 WiFi-BT Pioneer Kit)
 
 (from https://community.cypress.com/t5/WICED-Studio-Wi-Fi-Combo/Debugger-failing-to-launch-quot-error-erasing-flash-with/m-p/28810)
-
-* The build target needs to be `demo.iotconnect_demo-CY8CKIT_062-debug download download_apps run`
 
 Ensure that the following items are modified in the default debug configuration for your OS 
 (eg. 43xxx_Wi-Fi_Debug_Linux64) before debugging:
@@ -128,4 +128,4 @@ monitor psoc6 reset_halt sysresetreq
 monitor sleep 50
 ```
 
-* In the Common tab, click the "Launch in background "
+* In the Common tab, click the "Launch in background"
