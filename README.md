@@ -93,15 +93,39 @@ Call *IotConnectSdk_Disconnect()* when done.
 
 (from https://community.cypress.com/thread/32393?start=0&tstart=0)
 
+* The build target needs to be `demo.iotconnect_demo-CY8CKIT_062-debug download download_apps run`
+
 Ensure that the following items are modified in the default debug configuration for your OS 
 (eg. 43xxx_Wi-Fi_Debug_Linux64) before debugging:
 
 * In the Debug Configuration Startup tab, add below instruction into the area below the Halt option:
- 
+
 ```
 add-symbol-file build/eclipse_debug/last_built.elf 0x8000000
 ``` 
 
-3. In the same Startup tab, clear Run Commands area, default is the phrase "stepi", which should be removed
+* In the same Startup tab, clear Run Commands area, default is the phrase "stepi", which should be removed
+* In the Common tab, click the "Launch in background "
 
-4. In the Common tab, click the "Launch in background "
+### Debugging with CY8CKIT-062-WiFi-BT (PSoC 6 WiFi-BT Pioneer Kit)
+
+(from https://community.cypress.com/t5/WICED-Studio-Wi-Fi-Combo/Debugger-failing-to-launch-quot-error-erasing-flash-with/m-p/28810)
+
+* The build target needs to be `demo.iotconnect_demo-CY8CKIT_062-debug download download_apps run`
+
+Ensure that the following items are modified in the default debug configuration for your OS 
+(eg. 43xxx_Wi-Fi_Debug_Linux64) before debugging:
+
+* In the Debug Configuration Startup tab modify the following items:
+  * Uncheck the "Load image" checkmark.
+  * Check Set Breakpoint checkamrk and enter: `application_start`
+  * Check the Resume checkmark.
+  * CLear the Run Commands area, default is the phrase "stepi", which should be removed
+  * Add these instructions into the area below the Halt option:
+```
+monitor targets psoc6.cpu.cm4
+monitor psoc6 reset_halt sysresetreq
+monitor sleep 50
+```
+
+* In the Common tab, click the "Launch in background "
