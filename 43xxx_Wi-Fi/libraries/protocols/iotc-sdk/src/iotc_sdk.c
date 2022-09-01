@@ -166,7 +166,7 @@ wiced_result_t iotconnect_sdk_init() {
     WPRINT_LIB_INFO(("ENV:  %s\n", config.env));
 
     memset(&mqtt_config, 0, sizeof(mqtt_config));
-    mqtt_config.sr = local_sync_response; // FIXME sr is a local pointer that will go out of scope
+    mqtt_config.sr = local_sync_response; // FIXME local_sync_response is a local pointer that will go out of scope
     mqtt_config.data_cb = iotc_on_mqtt_data;
     mqtt_config.status_cb = on_iotconnect_status;
     mqtt_config.mqtt_timeout_ms = config.mqtt_timeout_ms; // if it is not assigned, the mqtt module will default it
@@ -179,7 +179,7 @@ wiced_result_t iotconnect_sdk_init() {
     lib_config.device.env = config.env;
     lib_config.device.cpid = config.cpid;
     lib_config.device.duid = config.duid;
-    lib_config.telemetry.dtg = local_sync_response->dtg; // FIXME sr is a local pointer that will go out of scope
+    lib_config.telemetry.dtg = local_sync_response->dtg; // FIXME local_sync_response is a local pointer that will go out of scope
                                                          // unclear what happens to its pointers?
     lib_config.event_functions.ota_cb = config.ota_cb;
     lib_config.event_functions.cmd_cb = config.cmd_cb;
