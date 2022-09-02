@@ -147,7 +147,7 @@ wiced_result_t iotconnect_sdk_init() {
     }
 
     iotc_wiced_discovery_init();
-    IotclSyncResponse *sync_response = iotc_wiced_discover(
+    IotclSyncResponse *local_sync_response = iotc_wiced_discover(
             config.env,
             config.cpid,
             config.duid,
@@ -155,18 +155,18 @@ wiced_result_t iotconnect_sdk_init() {
     );
     iotc_wiced_discovery_deinit();
 
-    if (!sync_response || sync_response->ds != IOTCL_SR_OK) {
-        report_sync_error(sync_response);
-        iotcl_discovery_free_sync_response(sync_response);
-        sync_response = NULL;
+    if (!local_sync_response || local_sync_response->ds != IOTCL_SR_OK) {
+        report_sync_error(local_sync_response);
+        iotcl_discovery_free_sync_response(local_sync_response);
+        local_sync_response = NULL;
         return WICED_ERROR;
     }
 
-    WPRINT_LIB_INFO(("CPID: %.*s***\n", 4, sync_response->cpid));
+    WPRINT_LIB_INFO(("CPID: %.*s***\n", 4, local_sync_response->cpid));
     WPRINT_LIB_INFO(("ENV:  %s\n", config.env));
 
     memset(&mqtt_config, 0, sizeof(mqtt_config));
-    mqtt_config.sr = sync_response;
+    mqtt_config.sr = local_sync_response; // FIXME local_sync_response is a local pointer that will go out of scope
     mqtt_config.data_cb = iotc_on_mqtt_data;
     mqtt_config.status_cb = on_iotconnect_status;
     mqtt_config.mqtt_timeout_ms = config.mqtt_timeout_ms; // if it is not assigned, the mqtt module will default it
@@ -179,7 +179,8 @@ wiced_result_t iotconnect_sdk_init() {
     lib_config.device.env = config.env;
     lib_config.device.cpid = config.cpid;
     lib_config.device.duid = config.duid;
-    lib_config.telemetry.dtg = sync_response->dtg;;
+    lib_config.telemetry.dtg = local_sync_response->dtg; // FIXME local_sync_response is a local pointer that will go out of scope
+                                                         // unclear what happens to its pointers?
     lib_config.event_functions.ota_cb = config.ota_cb;
     lib_config.event_functions.cmd_cb = config.cmd_cb;
 
