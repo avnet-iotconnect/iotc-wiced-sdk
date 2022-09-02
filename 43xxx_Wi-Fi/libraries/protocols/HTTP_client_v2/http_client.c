@@ -262,9 +262,9 @@ wiced_result_t http_request_init( http_request_t* request, http_client_t* client
 {
     wiced_result_t result;
 
-    memset( request, 0, sizeof( *request ) );
-
     wiced_assert( "bad arg", ( request != NULL ) && ( client != NULL ) && ( uri != NULL ) );
+
+    memset( request, 0, sizeof( *request ) );
 
     request->owner = client;
 
